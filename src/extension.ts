@@ -51,31 +51,50 @@ async function processCommand(context: vscode.ExtensionContext, promptForInput: 
 }
 
 async function queryOpenAI(editor: vscode.TextEditor, initialSelection: vscode.Selection, query: string, apiKey: string) {
+	const config = vscode.workspace.getConfiguration('wraiter');
+	const selectionType = config.get<string>('selectionType', 'initial'); // Ensure that the selectionType is a string
+
 	// Call GPT-3 API with selected text
 	const messages = [{'role': 'user', 'content': query}];
 	console.log(messages)
 	axios.post('https://api.openai.com/v1/chat/completions', {
-		"model": "gpt-3.5-turbo-16k",
-		messages
+	  "model": "gpt-3.5-turbo-16k",
+	  messages
 	}, {
-		headers: {
-			'Authorization': `Bearer ${apiKey}`
-		}
+	  headers: {
+		'Authorization': `Bearer ${apiKey}`
+	  }
 	}).then(response => {
-		console.log(response);
-		const text = response.data.choices[0].message.content;
-		// Insert text on the next line after the cursor
-		editor.edit(editBuilder => {
-			const position = new vscode.Position(editor.selection.end.line + 1, 0);
-			editBuilder.insert(position, '\n' + text);
-		}).then(() => {
-			// Revert the selection back to the initial selection
+	  console.log(response);
+	  const text = response.data.choices[0].message.content;
+	  // Insert text on the next line after the cursor
+	  editor.edit(editBuilder => {
+		const position = new vscode.Position(editor.selection.end.line + 1, 0);
+		editBuilder.insert(position, '\n' + text);
+	  }).then(() => {
+		let newPosition = editor.selection.end; // Get the end position of the editor after inserting the text
+		// Decide which text to select based on the user's configuration
+		switch(selectionType) {
+		  case 'initial':
 			editor.selection = initialSelection;
-		});
+			break;
+		  case 'response':
+			editor.selection = new vscode.Selection(newPosition.translate(-1), newPosition); // Select the response text
+			break;
+		  case 'both':
+			editor.selection = new vscode.Selection(initialSelection.start, newPosition); // Select both initial and response text
+			break;
+		  case 'none':
+			editor.selection = new vscode.Selection(newPosition, newPosition); // Select none
+			break;
+		}
+	  });
 	}).catch(error => {
-		console.error(error);
-		vscode.window.showErrorMessage(`Failed to call GPT-3: ${error.message}`);
+	  console.error(error);
+	  vscode.window.showErrorMessage(`Failed to call GPT-3: ${error.message}`);
 	});
-}
+  }
+
+
 
 export function deactivate() {}

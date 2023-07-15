@@ -37,6 +37,12 @@
           "type": "string",
           "default": "",
           "description": "OpenAI API Key"
+        },
+        "wraiter.selectionType": {
+          "type": "string",
+          "default": "initial",
+          "description": "The type of text to be selected after getting response from GPT-3",
+          "enum": ["initial", "response", "both", "none"]
         }
       }
     }
