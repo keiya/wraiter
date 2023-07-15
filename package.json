@@ -29,7 +29,17 @@
         "mac": "cmd+shift+g",
         "when": "editorTextFocus"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Wraiter",
+      "properties": {
+        "wraiter.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

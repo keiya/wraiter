@@ -5,56 +5,52 @@ const PREPEND_TEXT_KEY = 'prependText';
 
 export function activate(context: vscode.ExtensionContext) {
 	let disposable = vscode.commands.registerCommand('wraiter.gpt', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const document = editor.document;
-			const selection = editor.selection;
-
-			// Get the word within the selection
-			const word = document.getText(selection);
-
-			// Save the initial selection
-			const initialSelection = new vscode.Selection(selection.start, selection.end);
-
-			// Get previous prepend text
-			const previousPrependText = context.globalState.get<string>(PREPEND_TEXT_KEY, '');
-
-			// Prompt User for prepend text
-			const userInput = await vscode.window.showInputBox({
-				prompt: 'Enter the prepend text',
-				value: previousPrependText,
-			});
-
-			if (userInput) {
-				context.globalState.update(PREPEND_TEXT_KEY, userInput);
-				await queryOpenAI(editor, initialSelection, userInput + '\n\n' + word);
-			}
-		}
+		await processCommand(context, true);
 	});
 
 	let disposableShortcut = vscode.commands.registerCommand('wraiter.gpt.shortcut', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const document = editor.document;
-			const selection = editor.selection;
-
-			// Get the word within the selection
-			const word = document.getText(selection);
-
-			// Save the initial selection
-			const initialSelection = new vscode.Selection(selection.start, selection.end);
-
-			// Get previous prepend text
-			const previousPrependText = context.globalState.get<string>(PREPEND_TEXT_KEY, '');
-
-			await queryOpenAI(editor, initialSelection, previousPrependText + '\n\n' + word);
-		}
+		await processCommand(context, false);
 	});
 
 	context.subscriptions.push(disposable, disposableShortcut);
 }
 
-async function queryOpenAI(editor: vscode.TextEditor, initialSelection: vscode.Selection, query: string) {
+async function processCommand(context: vscode.ExtensionContext, promptForInput: boolean) {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) return;
+
+	const document = editor.document;
+	const selection = editor.selection;
+
+	// Get the word within the selection
+	const word = document.getText(selection);
+
+	// Save the initial selection
+	const initialSelection = new vscode.Selection(selection.start, selection.end);
+
+	// Get previous prepend text
+	const previousPrependText = context.globalState.get<string>(PREPEND_TEXT_KEY, '');
+
+	let prependText = previousPrependText;
+	if (promptForInput) {
+		// Prompt User for prepend text
+		const userInput = await vscode.window.showInputBox({
+			prompt: 'Enter the prepend text',
+			value: previousPrependText,
+		});
+		if (userInput !== undefined) {
+			prependText = userInput;
+			context.globalState.update(PREPEND_TEXT_KEY, userInput);
+		}
+	}
+
+	const config = vscode.workspace.getConfiguration('wraiter');
+	const apiKey = config.get('openaiApiKey', '');
+
+	await queryOpenAI(editor, initialSelection, prependText + '\n\n' + word, apiKey);
+}
+
+async function queryOpenAI(editor: vscode.TextEditor, initialSelection: vscode.Selection, query: string, apiKey: string) {
 	// Call GPT-3 API with selected text
 	const messages = [{'role': 'user', 'content': query}];
 	console.log(messages)
@@ -63,7 +59,7 @@ async function queryOpenAI(editor: vscode.TextEditor, initialSelection: vscode.S
 		messages
 	}, {
 		headers: {
-			'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+			'Authorization': `Bearer ${apiKey}`
 		}
 	}).then(response => {
 		console.log(response);
